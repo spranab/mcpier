@@ -1,0 +1,71 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "If true, run npm pack + show contents but skip the actual publish"
+        required: false
+        default: "true"
+
+jobs:
+  publish-npm:
+    name: npm publish (mcpier)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # needed for npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: install workspaces
+        run: npm ci
+
+      - name: build @mcpier/shared (inlined into CLI bundle)
+        run: npm run build -w @mcpier/shared
+
+      - name: build CLI (tsup bundle)
+        run: npm run build -w mcpier
+
+      - name: verify tarball contents
+        working-directory: packages/cli
+        run: |
+          npm pack --dry-run
+          echo "---"
+          # Real pack so the next step can reference the artifact.
+          npm pack
+          tar tzf mcpier-*.tgz
+
+      - name: sanity-check installed binary
+        working-directory: packages/cli
+        run: |
+          TDIR=$(mktemp -d)
+          pushd "$TDIR"
+          npm init -y >/dev/null
+          npm install $(ls -1 "$GITHUB_WORKSPACE"/packages/cli/mcpier-*.tgz)
+          ./node_modules/.bin/pier --version
+          ./node_modules/.bin/pier --help >/dev/null
+          popd
+
+      - name: npm publish
+        if: >-
+          github.event_name == 'push' ||
+          github.event.inputs.dry_run != 'true'
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+
+      - name: dry-run summary
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true'
+        run: |
+          echo "::notice::Dry run complete. Tarball at packages/cli/mcpier-*.tgz. Re-run with dry_run=false (or push a v* tag) to publish."
