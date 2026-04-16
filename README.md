@@ -1,5 +1,8 @@
 # Pier
 
+[![ci](https://github.com/spranab/mcpier/actions/workflows/ci.yml/badge.svg)](https://github.com/spranab/mcpier/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 **MCPs, simpler.**
 
 A self-hosted control plane for your Model Context Protocol servers. One manifest on your homelab, one `pier sync` on every machine, zero plaintext API keys in `~/.claude.json`.
