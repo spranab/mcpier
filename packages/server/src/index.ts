@@ -17,7 +17,7 @@ async function main(): Promise<void> {
     console.warn("[pier] WARNING: PIER_TOKENS is empty — all API requests will 401");
   }
 
-  const store = new SecretStore(config.PIER_DATA_DIR, config.PIER_MASTER_KEY);
+  const store = new SecretStore(config.PIER_DATA_DIR, config.masterKey);
   const seeds: { name: string; url: string }[] = [
     { name: "mcp-registry", url: "mcp-registry://official" },
   ];
