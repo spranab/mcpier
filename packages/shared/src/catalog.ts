@@ -46,6 +46,15 @@ export const CatalogEntry = z.object({
   homepage: z.string().url().optional(),
   verified: z.boolean().default(false),
   formula_url: z.string().url().optional(),
+  /** Inline formula, used by synthetic sources (e.g. the MCP Registry adapter). */
+  formula: z.any().optional(),
+  /** Authority signal from namespace-verified sources. */
+  authority: z
+    .object({
+      namespace: z.string(),
+      owner: z.string(),
+    })
+    .optional(),
 });
 export type CatalogEntry = z.infer<typeof CatalogEntry>;
 

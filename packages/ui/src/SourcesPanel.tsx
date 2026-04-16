@@ -173,6 +173,14 @@ function SubscriptionRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
           <span className="font-medium text-zinc-100 text-sm">{sub.name}</span>
+          {sub.url.startsWith("mcp-registry:") && (
+            <span
+              className="text-[10px] text-emerald-300 font-mono uppercase"
+              title="Official MCP Registry — namespace-authenticated via reverse-DNS / GitHub org verification."
+            >
+              authoritative
+            </span>
+          )}
           {sub.enabled && status && !err && (
             <span className="text-[10px] text-zinc-500 font-mono">
               {entryCount} entries
@@ -183,7 +191,11 @@ function SubscriptionRow({
           )}
           {err && <span className="text-[10px] text-rose-400 font-mono">{err}</span>}
         </div>
-        <div className="text-[10px] text-zinc-600 font-mono truncate">{sub.url}</div>
+        <div className="text-[10px] text-zinc-600 font-mono truncate">
+          {sub.url.startsWith("mcp-registry:")
+            ? "registry.modelcontextprotocol.io — backed by Anthropic, GitHub, Microsoft, PulseMCP"
+            : sub.url}
+        </div>
       </div>
       <div className="flex items-center gap-1 text-xs">
         <button

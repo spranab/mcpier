@@ -1,5 +1,6 @@
 import YAML from "yaml";
 import { Catalog, CatalogEntry, Formula } from "@mcpier/shared";
+import { fetchRegistry } from "./registry.js";
 
 export interface CatalogSource {
   name: string;
@@ -23,17 +24,36 @@ export class CatalogCache {
     private ttlMs: number,
   ) {}
 
+  private inflight: Map<string, Promise<void>> = new Map();
+
+  private kickoffIfStale(sub: { name: string; url: string }, now: number): void {
+    if (this.inflight.has(sub.name)) return;
+    const existing = this.sources.get(sub.name);
+    if (existing && now - existing.fetched_at < this.ttlMs) return;
+    const p = this.fetchOne(sub.name, sub.url, true).finally(() =>
+      this.inflight.delete(sub.name),
+    );
+    this.inflight.set(sub.name, p);
+  }
+
+  /** Non-blocking: returns whatever's in cache and schedules refresh of stale/missing sources. */
   async ensureFresh(): Promise<CatalogSource[]> {
     const subs = this.provider.list();
     this.pruneRemoved(subs);
     const now = Date.now();
-    await Promise.all(
-      subs.filter((s) => s.enabled).map(async (sub) => {
-        const existing = this.sources.get(sub.name);
-        if (existing && now - existing.fetched_at < this.ttlMs) return;
-        await this.fetchOne(sub.name, sub.url, true);
-      }),
-    );
+    for (const sub of subs.filter((s) => s.enabled)) {
+      if (!this.sources.has(sub.name)) {
+        this.sources.set(sub.name, {
+          name: sub.name,
+          url: sub.url,
+          verified: false,
+          enabled: true,
+          entries: [],
+          fetched_at: 0,
+        });
+      }
+      this.kickoffIfStale(sub, now);
+    }
     for (const sub of subs.filter((s) => !s.enabled)) {
       this.sources.set(sub.name, {
         name: sub.name,
@@ -45,6 +65,14 @@ export class CatalogCache {
       });
     }
     return this.orderedByProvider(subs);
+  }
+
+  /** Fire-and-forget warm-up on boot. */
+  warmUp(): void {
+    const now = Date.now();
+    for (const sub of this.provider.list().filter((s) => s.enabled)) {
+      this.kickoffIfStale(sub, now);
+    }
   }
 
   async forceRefresh(): Promise<CatalogSource[]> {
@@ -84,6 +112,18 @@ export class CatalogCache {
 
   private async fetchOne(name: string, url: string, enabled: boolean): Promise<void> {
     try {
+      if (url.startsWith("mcp-registry:")) {
+        const entries = await fetchRegistry();
+        this.sources.set(name, {
+          name,
+          url,
+          verified: true,
+          enabled,
+          entries,
+          fetched_at: Date.now(),
+        });
+        return;
+      }
       const res = await fetch(url);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const data = await res.json();

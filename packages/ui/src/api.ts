@@ -14,6 +14,8 @@ export interface CatalogSource {
     homepage?: string;
     verified: boolean;
     formula_url?: string;
+    formula?: unknown;
+    authority?: { namespace: string; owner: string };
   }[];
   fetched_at: number;
 }

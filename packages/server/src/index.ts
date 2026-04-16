@@ -18,12 +18,13 @@ async function main(): Promise<void> {
   }
 
   const store = new SecretStore(config.PIER_DATA_DIR, config.PIER_MASTER_KEY);
-  store.seedSubscriptionsFromEnv(
-    config.catalogUrls.map((url, i) => ({
-      name: defaultCatalogName(url, i),
-      url,
-    })),
-  );
+  const seeds: { name: string; url: string }[] = [
+    { name: "mcp-registry", url: "mcp-registry://official" },
+  ];
+  for (const [i, url] of config.catalogUrls.entries()) {
+    seeds.push({ name: defaultCatalogName(url, i), url });
+  }
+  store.seedSubscriptionsFromEnv(seeds);
   const manifests = new ManifestStore(config.PIER_MANIFEST_PATH);
   const catalogs = new CatalogCache(
     { list: () => store.listSubscriptions() },
@@ -50,6 +51,8 @@ async function main(): Promise<void> {
   if (remote.length > 0) {
     console.log(`[pier] proxying remote servers: ${remote.join(", ")}`);
   }
+
+  catalogs.warmUp();
 
   const uiDir = config.PIER_UI_DIR ?? resolve(process.cwd(), "../ui/dist");
   if (existsSync(uiDir)) {

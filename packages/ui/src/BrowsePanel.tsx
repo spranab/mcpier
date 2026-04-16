@@ -45,11 +45,15 @@ export function BrowsePanel(): JSX.Element {
     [sources, filter],
   );
 
-  async function openEntryInstall(entry: {
-    name: string;
-    source: string;
-    formula_url?: string;
-  }): Promise<void> {
+  async function openEntryInstall(entry: CatalogSource["entries"][number]): Promise<void> {
+    if (entry.formula) {
+      setPending({
+        entry_name: entry.name,
+        formula: entry.formula as Formula,
+        source_label: entry.source,
+      });
+      return;
+    }
     try {
       const { formula } = await resolveMut.mutateAsync({
         source: entry.formula_url ? undefined : entry.source,
@@ -170,6 +174,7 @@ export function BrowsePanel(): JSX.Element {
                         <EntryCard
                           key={`${source.name}/${entry.name}`}
                           entry={entry}
+                          sourceName={source.name}
                           onInstall={() => openEntryInstall(entry)}
                           loading={resolveMut.isPending}
                         />
@@ -201,27 +206,48 @@ export function BrowsePanel(): JSX.Element {
 
 function EntryCard({
   entry,
+  sourceName,
   onInstall,
   loading,
 }: {
   entry: CatalogSource["entries"][number];
+  sourceName: string;
   onInstall: () => void;
   loading: boolean;
 }): JSX.Element {
+  const isRegistry = sourceName === "mcp-registry";
+  const ownerLabel = entry.authority?.owner.startsWith("github:")
+    ? entry.authority.owner.slice(7)
+    : entry.authority?.owner;
   return (
     <div className="border border-zinc-900 rounded-md p-4 space-y-2 bg-zinc-950 hover:border-zinc-800 transition-colors">
       <div className="flex items-baseline gap-2">
-        <span className="font-medium text-zinc-100">{entry.name}</span>
-        {entry.verified && (
-          <span className="text-[10px] text-emerald-400 font-mono uppercase">
-            ✓ verified
+        <span className="font-medium text-zinc-100">{displayName(entry.name)}</span>
+        {isRegistry ? (
+          <span
+            className="text-[10px] text-emerald-400 font-mono uppercase"
+            title="Namespace-verified via the official MCP Registry"
+          >
+            ✓ registry
           </span>
-        )}
+        ) : entry.verified ? (
+          <span
+            className="text-[10px] text-amber-400 font-mono uppercase"
+            title="Self-declared by the catalog maintainer — trust the catalog you subscribe to."
+          >
+            ✓ curated
+          </span>
+        ) : null}
       </div>
+      {ownerLabel && (
+        <div className="text-[10px] text-zinc-500 font-mono">
+          owned by <span className="text-zinc-300">{ownerLabel}</span>
+        </div>
+      )}
       <p className="text-xs text-zinc-400">{entry.description}</p>
       {entry.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {entry.tags.map((t) => (
+          {entry.tags.slice(0, 5).map((t) => (
             <span
               key={t}
               className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-500"
@@ -232,7 +258,7 @@ function EntryCard({
         </div>
       )}
       <div className="flex items-center justify-between pt-1">
-        <span className="text-[10px] text-zinc-600 font-mono truncate">
+        <span className="text-[10px] text-zinc-600 font-mono truncate" title={entry.source}>
           {entry.source}
         </span>
         <button
@@ -245,6 +271,11 @@ function EntryCard({
       </div>
     </div>
   );
+}
+
+function displayName(registryName: string): string {
+  const slash = registryName.indexOf("/");
+  return slash === -1 ? registryName : registryName.slice(slash + 1);
 }
 
 function normaliseGitToFormulaUrl(input: string): string {
