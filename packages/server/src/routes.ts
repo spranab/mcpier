@@ -14,7 +14,7 @@ import { fetchFormulaFromUrl, resolveFormula } from "./catalog.js";
 import { searchRegistry } from "./registry.js";
 import { installFromFormula, uninstall } from "./install.js";
 import type { SessionManager } from "./sessions.js";
-import { createBackup } from "./backup.js";
+import { createBackup, restoreBackup } from "./backup.js";
 
 function deriveName(url: string): string {
   try {
@@ -126,6 +126,18 @@ export function registerRoutes(
       return bundle;
     } catch (err) {
       return reply.code(500).send({ error: (err as Error).message });
+    }
+  });
+
+  app.post("/api/restore", async (req, reply) => {
+    const token = auth(req, config.tokens);
+    if (!token) return reply.code(401).send({ error: "unauthorized" });
+    try {
+      const result = restoreBackup(req.body, store, manifests);
+      store.audit(token.slice(0, 8), "restore", `${result.restored_servers} servers`);
+      return { ok: true, ...result };
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
     }
   });
 

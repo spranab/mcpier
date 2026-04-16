@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { decrypt, encrypt } from "./crypto.js";
 
@@ -11,11 +11,14 @@ export interface SecretRow {
 
 export class SecretStore {
   private db: Database.Database;
+  private dbPath: string;
+  private dataDir: string;
 
   constructor(dataDir: string, private masterKey: string) {
     mkdirSync(dataDir, { recursive: true });
-    const path = join(dataDir, "pier.db");
-    this.db = new Database(path);
+    this.dataDir = dataDir;
+    this.dbPath = join(dataDir, "pier.db");
+    this.db = new Database(this.dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS secrets (
@@ -119,5 +122,53 @@ export class SecretStore {
         "INSERT INTO audit (ts, actor, action, target) VALUES (?, ?, ?, ?)",
       )
       .run(Date.now(), actor, action, target);
+  }
+
+  /**
+   * Validate that a candidate SQLite file was encrypted with the same master
+   * key as the running store. Opens it read-only and attempts to decrypt the
+   * first secret row (if any exist). Returns true if valid or empty.
+   */
+  validateMasterKey(candidateDbPath: string): { ok: true } | { ok: false; error: string } {
+    let candidate: Database.Database;
+    try {
+      candidate = new Database(candidateDbPath, { readonly: true, fileMustExist: true });
+    } catch (err) {
+      return { ok: false, error: `cannot open candidate db: ${(err as Error).message}` };
+    }
+    try {
+      const row = candidate
+        .prepare("SELECT key, value FROM secrets LIMIT 1")
+        .get() as { key: string; value: string } | undefined;
+      if (!row) return { ok: true };
+      decrypt(this.masterKey, row.value);
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        error: `master key mismatch: cannot decrypt secret '${(err as Error).message.slice(0, 80)}'`,
+      };
+    } finally {
+      candidate.close();
+    }
+  }
+
+  /**
+   * Atomically replace the on-disk pier.db with the given bytes and reopen.
+   * Caller MUST validate via validateMasterKey first. Any stale WAL/SHM
+   * sidecar files are removed so SQLite doesn't fight with them on reopen.
+   */
+  replaceDb(newBytes: Buffer): void {
+    this.db.close();
+    const staging = `${this.dbPath}.incoming`;
+    writeFileSync(staging, newBytes);
+    try {
+      try { renameSync(`${this.dbPath}-wal`, `${this.dbPath}-wal.old`); } catch { /* ignore */ }
+      try { renameSync(`${this.dbPath}-shm`, `${this.dbPath}-shm.old`); } catch { /* ignore */ }
+      renameSync(staging, this.dbPath);
+    } finally {
+      this.db = new Database(this.dbPath);
+      this.db.pragma("journal_mode = WAL");
+    }
   }
 }

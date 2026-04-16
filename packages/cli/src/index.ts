@@ -5,6 +5,7 @@ import { syncCmd } from "./commands/sync.js";
 import { statusCmd } from "./commands/status.js";
 import { secretsListCmd, secretsSetCmd } from "./commands/secrets.js";
 import { backupCmd } from "./commands/backup.js";
+import { restoreCmd } from "./commands/restore.js";
 
 const program = new Command();
 
@@ -47,6 +48,14 @@ program
   .option("-o, --output <path>", "write to file (default: stdout)")
   .action(async (opts: { output?: string }) => {
     await backupCmd(opts);
+  });
+
+program
+  .command("restore <path>")
+  .description("restore the server from a backup JSON bundle (same master key required)")
+  .option("-y, --yes", "skip the confirmation prompt", false)
+  .action(async (path: string, opts: { yes: boolean }) => {
+    await restoreCmd(path, opts);
   });
 
 const secrets = program.command("secrets").description("manage secrets on the server");
