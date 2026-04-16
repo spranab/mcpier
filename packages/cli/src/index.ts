@@ -6,6 +6,7 @@ import { statusCmd } from "./commands/status.js";
 import { secretsListCmd, secretsSetCmd } from "./commands/secrets.js";
 import { backupCmd } from "./commands/backup.js";
 import { restoreCmd } from "./commands/restore.js";
+import { installCmd, installGitCmd, type InstallOptions } from "./commands/install.js";
 
 const program = new Command();
 
@@ -40,6 +41,28 @@ program
   .option("--dry-run", "render but do not write", false)
   .action(async (opts: { clients: string; dryRun: boolean }) => {
     await syncCmd({ clients: opts.clients.split(","), dryRun: opts.dryRun });
+  });
+
+function installOptions<T extends import("commander").Command>(cmd: T): T {
+  return cmd
+    .option("--as <name>", "install as a different key in the manifest")
+    .option("--location <mode>", "local | remote (prompts otherwise)")
+    .option("--set <key=value...>", "pre-set a secret (repeatable)", (v, all: string[]) => [...all, v], [])
+    .option("--non-interactive", "fail instead of asking for missing values")
+    .option("--sync <clients>", "run `pier sync --clients <...>` after install")
+    .option("--source <name>", "narrow to a single subscribed catalog") as T;
+}
+
+installOptions(program.command("install <name>"))
+  .description("install an MCP from a subscribed catalog (interactive secrets)")
+  .action(async (name: string, opts: InstallOptions) => {
+    await installCmd(name, opts);
+  });
+
+installOptions(program.command("install-git <url>"))
+  .description("install from a git repo or raw pier.yaml URL (unverified)")
+  .action(async (url: string, opts: InstallOptions) => {
+    await installGitCmd(url, opts);
   });
 
 program
