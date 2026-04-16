@@ -25,16 +25,18 @@ Set Theme "Catppuccin Mocha"
 Set TypingSpeed 45ms
 Set PlaybackSpeed 1.0
 
+# Enable comment-as-no-op parsing so '# ...' banners don't execute as commands.
 Hide
+Type "shopt -s interactive_comments" Enter
 Type "clear" Enter
 Show
 
 Sleep 600ms
 
-Type "# mcpier — install MCPs on your homelab, sync to every client"
-Sleep 1s
+Type "# Install MCPs on your homelab, sync them to every client."
+Sleep 1200ms
 Enter
-Sleep 600ms
+Sleep 400ms
 
 Type "pier login http://pier:8420 --token demo-device-token"
 Sleep 400ms
@@ -56,5 +58,5 @@ Sleep 400ms
 Enter
 Sleep 3500ms
 
-Type "# secrets live encrypted on pier. clients never see them."
-Sleep 2s
+Type "# Secrets live encrypted on pier. Clients never see them."
+Sleep 2500ms
