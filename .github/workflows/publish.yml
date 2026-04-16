@@ -1,9 +1,14 @@
 name: publish
 
 on:
-  push:
-    tags:
-      - "v*"
+  # Only a GitHub Release publishes to npm. Tags on their own do nothing.
+  # Create a release either via the Releases UI or:
+  #   gh release create v0.1.1 --title "..." --notes "..."
+  release:
+    types: [published]
+
+  # Manual trigger for dry-runs (default) or force-publishes outside the
+  # normal release flow. Defaults to dry_run=true for safety.
   workflow_dispatch:
     inputs:
       dry_run:
@@ -26,6 +31,17 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
           cache: npm
+
+      - name: verify release tag matches packages/cli/package.json
+        if: github.event_name == 'release'
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Release tag '$GITHUB_REF_NAME' => v$TAG_VERSION, but packages/cli/package.json is $PKG_VERSION. Bump package.json and re-cut the release."
+            exit 1
+          fi
+          echo "✓ tag matches: v$TAG_VERSION"
 
       - name: install workspaces
         run: npm ci
@@ -58,7 +74,7 @@ jobs:
 
       - name: npm publish
         if: >-
-          github.event_name == 'push' ||
+          github.event_name == 'release' ||
           github.event.inputs.dry_run != 'true'
         working-directory: packages/cli
         env:
