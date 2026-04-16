@@ -74,6 +74,10 @@ export const api = {
   getCatalog: () => req<{ sources: CatalogSource[] }>("/api/catalog"),
   refreshCatalog: () =>
     req<{ sources: CatalogSource[] }>("/api/catalog/refresh", { method: "POST" }),
+  searchRegistry: (q: string) =>
+    req<{ entries: CatalogSource["entries"] }>(
+      `/api/catalog/search?q=${encodeURIComponent(q)}`,
+    ),
   resolveFormula: (body: { source?: string; formula_url?: string }) =>
     req<{ formula: Formula }>("/api/catalog/formula", {
       method: "POST",

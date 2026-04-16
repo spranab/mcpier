@@ -217,3 +217,24 @@ export async function fetchRegistry(opts: { maxPages?: number; pageSize?: number
   }
   return out;
 }
+
+export async function searchRegistry(query: string, limit = 50): Promise<CatalogEntry[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const url = new URL(`${REGISTRY_BASE}/servers`);
+  url.searchParams.set("search", q);
+  url.searchParams.set("limit", String(Math.min(Math.max(limit, 1), 100)));
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`registry search ${res.status} ${res.statusText}`);
+  const page = (await res.json()) as RegistryPage;
+  const out: CatalogEntry[] = [];
+  const seen = new Set<string>();
+  for (const item of page.servers ?? []) {
+    const entry = toCatalogEntry(item);
+    if (!entry) continue;
+    if (seen.has(entry.name)) continue;
+    seen.add(entry.name);
+    out.push(entry);
+  }
+  return out;
+}

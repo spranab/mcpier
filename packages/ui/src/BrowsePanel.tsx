@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Formula } from "@mcpier/shared";
 import { api, type CatalogSource } from "./api.js";
@@ -14,6 +14,7 @@ export function BrowsePanel(): JSX.Element {
   });
 
   const [filter, setFilter] = useState("");
+  const [debouncedFilter, setDebouncedFilter] = useState("");
   const [pending, setPending] = useState<{
     entry_name: string;
     formula: Formula;
@@ -21,6 +22,18 @@ export function BrowsePanel(): JSX.Element {
   } | null>(null);
   const [gitUrl, setGitUrl] = useState("");
   const [gitError, setGitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedFilter(filter.trim()), 350);
+    return () => clearTimeout(id);
+  }, [filter]);
+
+  const registrySearch = useQuery({
+    queryKey: ["registry-search", debouncedFilter],
+    queryFn: () => api.searchRegistry(debouncedFilter),
+    enabled: debouncedFilter.length >= 2,
+    staleTime: 30_000,
+  });
 
   const resolveMut = useMutation({
     mutationFn: (body: { source?: string; formula_url?: string }) =>
@@ -146,6 +159,22 @@ export function BrowsePanel(): JSX.Element {
           </p>
         )}
 
+        {debouncedFilter.length >= 2 && (
+          <RegistrySearchResults
+            query={debouncedFilter}
+            loading={registrySearch.isFetching}
+            error={registrySearch.error as Error | null}
+            entries={registrySearch.data?.entries ?? []}
+            localMatchedNames={new Set(
+              sources
+                .filter((s) => s.enabled && s.name === "mcp-registry")
+                .flatMap((s) => s.entries.map((e) => e.name)),
+            )}
+            onInstall={(entry) => openEntryInstall(entry)}
+            resolving={resolveMut.isPending}
+          />
+        )}
+
         <div className="space-y-6">
           {sources
             .filter((s) => s.enabled)
@@ -199,6 +228,63 @@ export function BrowsePanel(): JSX.Element {
             qc.invalidateQueries({ queryKey: ["secrets"] });
           }}
         />
+      )}
+    </div>
+  );
+}
+
+function RegistrySearchResults({
+  query,
+  loading,
+  error,
+  entries,
+  localMatchedNames,
+  onInstall,
+  resolving,
+}: {
+  query: string;
+  loading: boolean;
+  error: Error | null;
+  entries: CatalogSource["entries"];
+  localMatchedNames: Set<string>;
+  onInstall: (entry: CatalogSource["entries"][number]) => void;
+  resolving: boolean;
+}): JSX.Element {
+  const newOnly = entries.filter((e) => !localMatchedNames.has(e.name));
+  return (
+    <div className="space-y-2 border border-zinc-900 rounded-md p-3 bg-zinc-950/50">
+      <div className="flex items-baseline gap-2">
+        <span className="text-xs font-semibold text-emerald-300">
+          Registry search
+        </span>
+        <span className="text-[10px] text-zinc-500 font-mono">query "{query}"</span>
+        {loading && <span className="text-[10px] text-zinc-500">searching…</span>}
+        {!loading && !error && (
+          <span className="text-[10px] text-zinc-500 font-mono">
+            {newOnly.length} new / {entries.length} total
+          </span>
+        )}
+        {error && (
+          <span className="text-[10px] text-rose-400">{error.message}</span>
+        )}
+      </div>
+      {!loading && newOnly.length === 0 && entries.length === 0 && !error && (
+        <p className="text-xs text-zinc-600">
+          no matches on the official MCP Registry for "{query}".
+        </p>
+      )}
+      {newOnly.length > 0 && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {newOnly.map((entry) => (
+            <EntryCard
+              key={`search/${entry.name}`}
+              entry={entry}
+              sourceName="mcp-registry"
+              onInstall={() => onInstall(entry)}
+              loading={resolving}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

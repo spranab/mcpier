@@ -11,6 +11,7 @@ import type { ManifestStore } from "./manifest.js";
 import type { Config } from "./config.js";
 import type { CatalogCache } from "./catalog.js";
 import { fetchFormulaFromUrl, resolveFormula } from "./catalog.js";
+import { searchRegistry } from "./registry.js";
 import { installFromFormula, uninstall } from "./install.js";
 import type { SessionManager } from "./sessions.js";
 
@@ -122,6 +123,21 @@ export function registerRoutes(
     const sources = await catalogs.forceRefresh();
     store.audit(token.slice(0, 8), "catalog.refresh", null);
     return { sources };
+  });
+
+  app.get("/api/catalog/search", async (req, reply) => {
+    const token = auth(req, config.tokens);
+    if (!token) return reply.code(401).send({ error: "unauthorized" });
+    const q = (req.query as Record<string, unknown>)["q"];
+    if (typeof q !== "string" || q.trim().length < 2) {
+      return { entries: [] };
+    }
+    try {
+      const entries = await searchRegistry(q, 50);
+      return { entries };
+    } catch (err) {
+      return reply.code(502).send({ error: (err as Error).message });
+    }
   });
 
   app.get("/api/catalogs", async (req, reply) => {
