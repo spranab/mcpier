@@ -1,0 +1,34 @@
+version: 1
+servers:
+  # Remote mode: Pier proxies to the upstream. Client gets ONE URL entry.
+  # Requires the upstream to speak HTTP or SSE natively.
+  yantrikdb:
+    transport: sse
+    url: http://192.168.4.79:8420/sse
+    secrets: [yantrikdb_token]
+    headers:
+      Authorization: "Bearer ${yantrikdb_token}"
+    location: remote
+
+  # Local mode: Pier writes the full stdio entry into client configs,
+  # client spawns `npx` on its own machine with secrets injected.
+  # Use this for stdio-only MCPs or anything that needs client filesystem/browser.
+  brainstorm:
+    transport: stdio
+    command: npx
+    args: [-y, brainstorm-mcp]
+    secrets: [openai_key, gemini_key, deepseek_key]
+    env:
+      OPENAI_API_KEY: "${openai_key}"
+      GEMINI_API_KEY: "${gemini_key}"
+      DEEPSEEK_API_KEY: "${deepseek_key}"
+    location: local
+
+  saga:
+    transport: stdio
+    command: npx
+    args: [-y, saga-mcp]
+    secrets: [saga_key]
+    env:
+      SAGA_API_KEY: "${saga_key}"
+    location: local

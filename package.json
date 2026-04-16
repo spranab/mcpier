@@ -1,0 +1,33 @@
+{
+  "name": "mcpier",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted MCP control plane — configs, secrets, and gateway for your MCP servers.",
+  "license": "MIT",
+  "author": "spranab",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spranab/mcpier.git"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build -w @mcpier/shared && npm run build -w @mcpier/server && npm run build -w mcpier && npm run build -w @mcpier/ui",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "server": "npm run dev -w @mcpier/server",
+    "ui": "npm run dev -w @mcpier/ui",
+    "cli": "npm run dev -w @mcpier/cli --"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

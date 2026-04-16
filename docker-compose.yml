@@ -1,0 +1,20 @@
+services:
+  pier:
+    build: .
+    image: mcpier:latest
+    container_name: pier
+    restart: unless-stopped
+    ports:
+      - "8420:8420"
+    environment:
+      PIER_PORT: 8420
+      PIER_HOST: 0.0.0.0
+      PIER_DATA_DIR: /data
+      PIER_MANIFEST_PATH: /data/manifest.yaml
+      PIER_MASTER_KEY: ${PIER_MASTER_KEY}
+      PIER_TOKENS: ${PIER_TOKENS}
+    volumes:
+      - pier-data:/data
+
+volumes:
+  pier-data:
