@@ -1,0 +1,28 @@
+# Example ingress — customize for your controller (nginx, traefik, etc.)
+# Uncomment + adjust and re-apply.
+#
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: pier
+#   namespace: pier
+#   annotations:
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+#     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"     # SSE needs long-lived conns
+#     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+#     nginx.ingress.kubernetes.io/proxy-buffering: "off"          # don't buffer SSE
+# spec:
+#   ingressClassName: nginx
+#   tls:
+#     - hosts: [pier.homelab.example]
+#       secretName: pier-tls
+#   rules:
+#     - host: pier.homelab.example
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: pier
+#                 port: { name: http }

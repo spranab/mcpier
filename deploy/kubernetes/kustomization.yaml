@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: pier
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  # - secret.yaml        # prefer out-of-band creation via `kubectl create secret`
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  # - ingress.yaml       # uncomment + edit after reviewing hostname/TLS

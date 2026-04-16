@@ -44,7 +44,12 @@ Public registries (mcp.so, Smithery, Anthropic's registry) don't help because yo
 └─────────────────┘
 ```
 
-## Quickstart — Docker (recommended)
+## Deploy
+
+- **Docker Compose** — single-node homelab, fastest start. See below.
+- **Kubernetes** — proper cluster deploy with manifests + kustomize. See [deploy/kubernetes/README.md](deploy/kubernetes/README.md).
+
+## Quickstart — Docker (recommended for first run)
 
 ```bash
 git clone https://github.com/spranab/mcpier

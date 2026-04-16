@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pier-config
+  namespace: pier
+data:
+  PIER_PORT: "8420"
+  PIER_HOST: "0.0.0.0"
+  PIER_DATA_DIR: "/data"
+  PIER_MANIFEST_PATH: "/data/manifest.yaml"
+  # Seeded on first boot only. After that, manage via the UI Sources panel
+  # or `pier catalog add/remove`.
+  PIER_CATALOG_URLS: "https://raw.githubusercontent.com/spranab/mcpier-catalog/main/catalog.json,https://raw.githubusercontent.com/spranab/mcpier-catalog/main/community.json"
