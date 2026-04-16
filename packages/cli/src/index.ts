@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name("pier")
   .description("self-hosted MCP control plane — sync configs and secrets from your homelab")
-  .version("0.1.1");
+  .version("0.1.2");
 
 program
   .command("login <server>")

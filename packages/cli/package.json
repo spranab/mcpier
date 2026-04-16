@@ -1,6 +1,6 @@
 {
   "name": "mcpier",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "pier — CLI for mcpier, a self-hosted MCP control plane. Install, sync, browse, backup MCP servers from your homelab.",
   "keywords": [
     "mcp",
