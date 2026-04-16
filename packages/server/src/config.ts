@@ -16,6 +16,12 @@ const Env = z.object({
       "https://raw.githubusercontent.com/spranab/mcpier-catalog/main/catalog.json",
     ),
   PIER_CATALOG_TTL_SECONDS: z.coerce.number().default(900),
+  /**
+   * Default per-spawned-MCP memory cap in megabytes. Applied via `prlimit`
+   * on Linux; logs a warning and is skipped on other platforms. Set 0 to
+   * disable.
+   */
+  PIER_SPAWN_MEMORY_MB: z.coerce.number().default(512),
 });
 
 export type Config = z.infer<typeof Env> & {

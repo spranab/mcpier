@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyReply } from "fastify";
 import type { StdioServer } from "@mcpier/shared";
-import { spawnMcp, type McpProcess } from "./spawn.js";
+import { spawnMcp, type McpProcess, type SpawnOptions } from "./spawn.js";
 import type { SecretStore } from "./db.js";
 
 export interface Session {
@@ -17,7 +17,10 @@ export class SessionManager {
   private sessions: Map<string, Session> = new Map();
   private byName: Map<string, Set<string>> = new Map();
 
-  constructor(private store: SecretStore) {}
+  constructor(
+    private store: SecretStore,
+    private spawnDefaults: SpawnOptions = {},
+  ) {}
 
   listByName(): Record<string, { session_count: number; pids: number[] }> {
     const out: Record<string, { session_count: number; pids: number[] }> = {};
@@ -40,7 +43,7 @@ export class SessionManager {
   ): Session {
     const id = randomUUID();
     const logPrefix = `mcp:${name}:${id.slice(0, 8)}`;
-    const process = spawnMcp(entry, secrets, logPrefix);
+    const process = spawnMcp(entry, secrets, logPrefix, this.spawnDefaults);
 
     const session: Session = {
       id,

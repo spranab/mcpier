@@ -43,6 +43,7 @@ COPY --from=builder /app/packages/ui/dist              packages/ui/dist
 
 RUN npm ci --omit=dev --workspace @mcpier/server --include-workspace-root \
  && apk del python3 make g++ \
+ && apk add --no-cache util-linux \
  && rm -rf /root/.npm /tmp/*
 
 # /data must exist and be writable by the `node` user BEFORE VOLUME is declared

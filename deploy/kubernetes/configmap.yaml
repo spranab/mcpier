@@ -11,3 +11,5 @@ data:
   # Seeded on first boot only. After that, manage via the UI Sources panel
   # or `pier catalog add/remove`.
   PIER_CATALOG_URLS: "https://raw.githubusercontent.com/spranab/mcpier-catalog/main/catalog.json,https://raw.githubusercontent.com/spranab/mcpier-catalog/main/community.json"
+  # Per-spawned-MCP memory cap in MB (prlimit --as on Linux). 0 = off.
+  PIER_SPAWN_MEMORY_MB: "512"

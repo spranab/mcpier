@@ -30,7 +30,20 @@ async function main(): Promise<void> {
     { list: () => store.listSubscriptions() },
     config.PIER_CATALOG_TTL_SECONDS * 1000,
   );
-  const sessions = new SessionManager(store);
+  const sessions = new SessionManager(store, {
+    memoryMb: config.PIER_SPAWN_MEMORY_MB,
+  });
+  if (config.PIER_SPAWN_MEMORY_MB > 0) {
+    if (process.platform !== "linux") {
+      console.warn(
+        `[pier] PIER_SPAWN_MEMORY_MB=${config.PIER_SPAWN_MEMORY_MB} is only enforced on Linux (prlimit). Container-level limits still apply.`,
+      );
+    } else {
+      console.log(
+        `[pier] spawned MCPs capped at ${config.PIER_SPAWN_MEMORY_MB} MB (prlimit --as)`,
+      );
+    }
+  }
 
   const app = Fastify({ logger: { level: "info" } });
   await app.register(cors, { origin: true });

@@ -40,6 +40,7 @@ data:
   PIER_DATA_DIR: "/data"
   PIER_MANIFEST_PATH: "/data/manifest.yaml"
   PIER_CATALOG_URLS: "https://raw.githubusercontent.com/spranab/mcpier-catalog/main/catalog.json,https://raw.githubusercontent.com/spranab/mcpier-catalog/main/community.json"
+  PIER_SPAWN_MEMORY_MB: "512"
 ---
 # ⚠ PLACEHOLDER SECRET — see top-of-file warning. Rotate before use.
 apiVersion: v1
