@@ -14,6 +14,7 @@ import { fetchFormulaFromUrl, resolveFormula } from "./catalog.js";
 import { searchRegistry } from "./registry.js";
 import { installFromFormula, uninstall } from "./install.js";
 import type { SessionManager } from "./sessions.js";
+import { createBackup } from "./backup.js";
 
 function deriveName(url: string): string {
   try {
@@ -108,6 +109,24 @@ export function registerRoutes(
     const token = auth(req, config.tokens);
     if (!token) return reply.code(401).send({ error: "unauthorized" });
     return { spawned: sessions.listByName() };
+  });
+
+  app.get("/api/backup", async (req, reply) => {
+    const token = auth(req, config.tokens);
+    if (!token) return reply.code(401).send({ error: "unauthorized" });
+    try {
+      const bundle = createBackup(config.PIER_DATA_DIR, manifests, "0.1.0", store);
+      store.audit(token.slice(0, 8), "backup", null);
+      reply.header(
+        "content-disposition",
+        `attachment; filename="pier-backup-${new Date()
+          .toISOString()
+          .replace(/[:.]/g, "-")}.json"`,
+      );
+      return bundle;
+    } catch (err) {
+      return reply.code(500).send({ error: (err as Error).message });
+    }
   });
 
   app.get("/api/catalog", async (req, reply) => {

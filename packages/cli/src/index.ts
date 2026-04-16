@@ -4,6 +4,7 @@ import { loginCmd } from "./commands/login.js";
 import { syncCmd } from "./commands/sync.js";
 import { statusCmd } from "./commands/status.js";
 import { secretsListCmd, secretsSetCmd } from "./commands/secrets.js";
+import { backupCmd } from "./commands/backup.js";
 
 const program = new Command();
 
@@ -38,6 +39,14 @@ program
   .option("--dry-run", "render but do not write", false)
   .action(async (opts: { clients: string; dryRun: boolean }) => {
     await syncCmd({ clients: opts.clients.split(","), dryRun: opts.dryRun });
+  });
+
+program
+  .command("backup")
+  .description("download a JSON bundle of the server's manifest + encrypted DB")
+  .option("-o, --output <path>", "write to file (default: stdout)")
+  .action(async (opts: { output?: string }) => {
+    await backupCmd(opts);
   });
 
 const secrets = program.command("secrets").description("manage secrets on the server");

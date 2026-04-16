@@ -45,4 +45,14 @@ export class PierClient {
       body: JSON.stringify({ key, value }),
     });
   }
+
+  async backupRaw(): Promise<string> {
+    const res = await fetch(`${this.cfg.server}/api/backup`, {
+      headers: { Authorization: `Bearer ${this.cfg.token}` },
+    });
+    if (!res.ok) {
+      throw new Error(`${res.status} ${res.statusText}: ${await res.text().catch(() => "")}`);
+    }
+    return res.text();
+  }
 }
