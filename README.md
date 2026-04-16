@@ -8,6 +8,8 @@
 
 One YAML manifest on your homelab, `pier sync` on every client, zero API keys in `~/.claude.json`. Install MCPs from the [official MCP Registry](https://registry.modelcontextprotocol.io), community catalogs, or any git repo. Spawn them centrally so clients just point at a URL — no `npx` or `uvx` on your laptop.
 
+![pier quickstart](demo/pier-quickstart.gif)
+
 ## The problem
 
 You run MCPs across five machines. Each `~/.claude.json` has your OpenAI key, Gemini key, GitHub token — in plaintext. Adding a new MCP means editing five files. Rotating a key means editing five files. Pick up a new laptop? Copy-paste five configs. Hit the 8-server / 60-second timeout wall and everything falls over.
