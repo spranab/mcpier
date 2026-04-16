@@ -41,9 +41,43 @@ Public registries (mcp.so, Smithery, Anthropic's registry) don't help because yo
 └─────────────────┘
 ```
 
-## Quickstart
+## Quickstart — Docker (recommended)
 
-See [packages/server/README.md](packages/server/README.md) to run the server and [packages/cli/README.md](packages/cli/README.md) to use the CLI.
+```bash
+git clone https://github.com/spranab/mcpier
+cd mcpier
+cp .env.example .env
+
+# Fill these in .env:
+#   PIER_MASTER_KEY   (openssl rand -hex 32)
+#   PIER_TOKENS       (openssl rand -hex 24, one per machine you'll sync from)
+
+docker compose up -d
+# → http://<host>:8420  (healthcheck visible in `docker compose ps`)
+```
+
+Data persists in the named volume `pier-data`. Secrets are AES-256-GCM encrypted at rest. The container runs as the non-root `node` user (uid 1000).
+
+### Plugging a client into it
+
+Install the CLI on each machine:
+
+```bash
+npm i -g mcpier
+pier login http://<your-host>:8420 --token <one-of-your-PIER_TOKENS>
+pier sync                                                  # writes ~/.claude.json
+```
+
+Then open `http://<your-host>:8420` in a browser, sign in with the same token, Browse → install from the **official MCP Registry** (always-on), from the curated feeds (mcpier-catalog + community), or paste any git URL.
+
+## Development
+
+```bash
+npm install
+npm run dev        # shared (watch) + server + ui, three processes
+```
+
+See [packages/server/README.md](packages/server/README.md) and [packages/cli/README.md](packages/cli/README.md) for package-level detail.
 
 ## Runtime support
 

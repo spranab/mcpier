@@ -5,16 +5,19 @@ services:
     container_name: pier
     restart: unless-stopped
     ports:
-      - "8420:8420"
+      - "${PIER_PORT:-8420}:8420"
     environment:
-      PIER_PORT: 8420
-      PIER_HOST: 0.0.0.0
-      PIER_DATA_DIR: /data
-      PIER_MANIFEST_PATH: /data/manifest.yaml
-      PIER_MASTER_KEY: ${PIER_MASTER_KEY}
-      PIER_TOKENS: ${PIER_TOKENS}
+      PIER_MASTER_KEY: "${PIER_MASTER_KEY:?PIER_MASTER_KEY must be set in .env — generate with: openssl rand -hex 32}"
+      PIER_TOKENS: "${PIER_TOKENS:?PIER_TOKENS must be set in .env — generate with: openssl rand -hex 24}"
+      PIER_CATALOG_URLS: "${PIER_CATALOG_URLS:-https://raw.githubusercontent.com/spranab/mcpier-catalog/main/catalog.json,https://raw.githubusercontent.com/spranab/mcpier-catalog/main/community.json}"
     volumes:
       - pier-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8420/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   pier-data:

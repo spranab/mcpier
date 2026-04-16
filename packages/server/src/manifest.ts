@@ -1,4 +1,5 @@
-import { readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { createHash } from "node:crypto";
 import YAML from "yaml";
 import { Manifest } from "@mcpier/shared";
@@ -13,7 +14,15 @@ function etagFor(raw: string): string {
   return createHash("sha256").update(raw).digest("hex").slice(0, 16);
 }
 
+const EMPTY_MANIFEST: Manifest = { version: 1, servers: {} };
+
 export function loadManifest(path: string): LoadedManifest {
+  if (!existsSync(path)) {
+    mkdirSync(dirname(path), { recursive: true });
+    const raw = YAML.stringify(EMPTY_MANIFEST);
+    writeFileSync(path, raw);
+    return { manifest: EMPTY_MANIFEST, etag: etagFor(raw), mtime: Date.now() };
+  }
   const raw = readFileSync(path, "utf8");
   const data = YAML.parse(raw);
   const manifest = Manifest.parse(data);
