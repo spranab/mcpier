@@ -72,9 +72,21 @@ async function main(): Promise<void> {
     await app.register(fastifyStatic, {
       root: resolve(uiDir),
       prefix: "/",
-      decorateReply: false,
     });
-    app.setNotFoundHandler((_req, reply) => reply.sendFile("index.html"));
+    // SPA fallback: 404s under /api or /mcp are real misses (return JSON),
+    // everything else rewrites to index.html for client-side routing.
+    app.setNotFoundHandler((req, reply) => {
+      const url = req.url.split("?")[0] ?? req.url;
+      if (url.startsWith("/api/") || url.startsWith("/mcp/") || url === "/health") {
+        return reply.code(404).send({ error: "not_found", path: url });
+      }
+      return reply.sendFile("index.html");
+    });
+  } else {
+    // No UI bundle shipped — return JSON for any unmatched route.
+    app.setNotFoundHandler((req, reply) =>
+      reply.code(404).send({ error: "not_found", path: req.url }),
+    );
   }
 
   await app.listen({ port: config.PIER_PORT, host: config.PIER_HOST });
