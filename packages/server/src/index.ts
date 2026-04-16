@@ -68,13 +68,17 @@ async function main(): Promise<void> {
 function defaultCatalogName(url: string, index: number): string {
   try {
     const u = new URL(url);
-    const path = u.pathname.replace(/\.json$/, "");
-    const seg = path.split("/").filter(Boolean).pop() ?? u.hostname;
-    if (seg === "catalog") {
-      const parent = path.split("/").filter(Boolean).at(-2);
-      return parent ? `${u.hostname}/${parent}` : u.hostname;
+    const segs = u.pathname.split("/").filter(Boolean);
+    // github raw: /<owner>/<repo>/<ref>/<path...>/<file>.json
+    if (u.hostname === "raw.githubusercontent.com" && segs.length >= 4) {
+      const repo = segs[1]!;
+      const file = segs[segs.length - 1]!.replace(/\.(json|ya?ml)$/, "");
+      if (file === "catalog" || file === "index") return repo;
+      return `${repo}/${file}`;
     }
-    return seg || `catalog-${index}`;
+    const last = segs[segs.length - 1] ?? "";
+    const file = last.replace(/\.(json|ya?ml)$/, "");
+    return file || u.hostname || `catalog-${index}`;
   } catch {
     return `catalog-${index}`;
   }

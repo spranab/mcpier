@@ -18,8 +18,11 @@ function deriveName(url: string): string {
   try {
     const u = new URL(url);
     const segs = u.pathname.split("/").filter(Boolean);
-    if (segs.length >= 2 && u.hostname.includes("github")) {
-      return `${segs[0]}/${segs[1]}`;
+    if (u.hostname === "raw.githubusercontent.com" && segs.length >= 4) {
+      const repo = segs[1]!;
+      const file = segs[segs.length - 1]!.replace(/\.(json|ya?ml)$/, "");
+      if (file === "catalog" || file === "index") return repo;
+      return `${repo}/${file}`;
     }
     const last = segs[segs.length - 1] ?? "";
     const trimmed = last.replace(/\.(json|ya?ml)$/, "");
