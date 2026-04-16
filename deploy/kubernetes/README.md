@@ -1,8 +1,33 @@
 # Pier on Kubernetes
 
-Single-service deploy, ~7 manifests, no Helm dependency. Works on any cluster (k3s, rke2, kind, EKS, GKE, AKS).
+Single-service deploy, no Helm dependency. Works on any cluster (k3s, rke2, kind, EKS, GKE, AKS).
 
-## 1. Create the secret out-of-band
+## One-liner install (dev / homelab)
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/spranab/mcpier/main/deploy/kubernetes/install.yaml
+kubectl -n pier port-forward svc/pier 8420:8420
+# → open http://localhost:8420 and sign in with the placeholder token:
+#   pier-dev-token-rotate-me-before-storing-real-secrets
+```
+
+That's the full deploy: namespace, pvc, configmap, secret, deployment, service — all in [`install.yaml`](./install.yaml).
+
+**Before you store real API keys, rotate the default secret.** Pier encrypts at rest with `PIER_MASTER_KEY`; any secret stored under the placeholder key becomes unreadable after rotation, so rotate while the box is empty:
+
+```bash
+kubectl -n pier delete secret pier-secrets
+
+kubectl -n pier create secret generic pier-secrets \
+  --from-literal=PIER_MASTER_KEY="$(openssl rand -hex 32)" \
+  --from-literal=PIER_TOKENS="$(openssl rand -hex 24)"
+
+kubectl -n pier rollout restart deployment/pier
+```
+
+## Secure install (production — no placeholder secret ever reaches the cluster)
+
+### 1. Create the secret out-of-band
 
 ```bash
 kubectl create namespace pier
@@ -20,13 +45,13 @@ kubectl -n pier create secret generic pier-secrets \
   --from-literal=PIER_TOKENS="$(openssl rand -hex 24),$(openssl rand -hex 24)"
 ```
 
-## 2. Apply everything else
+### 2. Apply everything else
 
 ```bash
 kubectl apply -k deploy/kubernetes/
 ```
 
-Uses kustomize. Equivalent: `kubectl apply -f deploy/kubernetes/{namespace,configmap,pvc,deployment,service}.yaml`.
+Uses kustomize; skips the placeholder `secret.yaml` since you created one in step 1. Equivalent: `kubectl apply -f deploy/kubernetes/{namespace,configmap,pvc,deployment,service}.yaml`.
 
 ## 3. Verify
 

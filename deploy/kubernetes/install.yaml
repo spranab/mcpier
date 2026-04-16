@@ -1,0 +1,146 @@
+# Pier — one-file Kubernetes install.
+#
+# Quick start (dev / homelab — SEE WARNING AT BOTTOM):
+#   kubectl apply -f https://raw.githubusercontent.com/spranab/mcpier/main/deploy/kubernetes/install.yaml
+#
+# This creates: namespace, configmap, secret (with placeholder creds), pvc,
+# deployment, and service. Everything runs in namespace 'pier'.
+#
+# Image:  ghcr.io/spranab/mcpier:latest
+# Port:   8420 (ClusterIP only — add ingress.yaml or `kubectl port-forward`)
+#
+# ⚠  The default Secret at the bottom of this file contains PLACEHOLDER
+# credentials meant ONLY for getting a dev/homelab instance alive quickly.
+# BEFORE you store real API keys in Pier, rotate them:
+#
+#   kubectl -n pier delete secret pier-secrets
+#   kubectl -n pier create secret generic pier-secrets \
+#     --from-literal=PIER_MASTER_KEY="$(openssl rand -hex 32)" \
+#     --from-literal=PIER_TOKENS="$(openssl rand -hex 24)"
+#   kubectl -n pier rollout restart deployment/pier
+#
+# Any real secret you've stored becomes unreadable after PIER_MASTER_KEY
+# rotation — Pier encrypts at rest with it. Rotate BEFORE loading real data.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pier
+  labels:
+    app.kubernetes.io/name: pier
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pier-config
+  namespace: pier
+data:
+  PIER_PORT: "8420"
+  PIER_HOST: "0.0.0.0"
+  PIER_DATA_DIR: "/data"
+  PIER_MANIFEST_PATH: "/data/manifest.yaml"
+  PIER_CATALOG_URLS: "https://raw.githubusercontent.com/spranab/mcpier-catalog/main/catalog.json,https://raw.githubusercontent.com/spranab/mcpier-catalog/main/community.json"
+---
+# ⚠ PLACEHOLDER SECRET — see top-of-file warning. Rotate before use.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pier-secrets
+  namespace: pier
+type: Opaque
+stringData:
+  PIER_MASTER_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+  PIER_TOKENS: "pier-dev-token-rotate-me-before-storing-real-secrets"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pier-data
+  namespace: pier
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pier
+  namespace: pier
+  labels:
+    app.kubernetes.io/name: pier
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pier
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pier
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: pier
+          image: ghcr.io/spranab/mcpier:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8420
+          envFrom:
+            - configMapRef:
+                name: pier-config
+            - secretRef:
+                name: pier-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: pier-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pier
+  namespace: pier
+  labels:
+    app.kubernetes.io/name: pier
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: pier
+  ports:
+    - name: http
+      port: 8420
+      targetPort: http

@@ -47,7 +47,11 @@ Public registries (mcp.so, Smithery, Anthropic's registry) don't help because yo
 ## Deploy
 
 - **Docker Compose** — single-node homelab, fastest start. See below.
-- **Kubernetes** — proper cluster deploy with manifests + kustomize. See [deploy/kubernetes/README.md](deploy/kubernetes/README.md).
+- **Kubernetes** — one `kubectl apply -f` to get everything:
+  ```bash
+  kubectl apply -f https://raw.githubusercontent.com/spranab/mcpier/main/deploy/kubernetes/install.yaml
+  ```
+  Full details + secret rotation in [deploy/kubernetes/README.md](deploy/kubernetes/README.md).
 
 ## Quickstart — Docker (recommended for first run)
 
