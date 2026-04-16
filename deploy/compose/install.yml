@@ -1,0 +1,50 @@
+# Pier — one-command Docker Compose install (uses ghcr.io image, no clone needed).
+#
+# Quick start (dev / homelab — SEE WARNING BELOW):
+#   docker compose -f https://raw.githubusercontent.com/spranab/mcpier/main/deploy/compose/install.yml up -d
+#
+# Or save + run locally:
+#   curl -O https://raw.githubusercontent.com/spranab/mcpier/main/deploy/compose/install.yml
+#   docker compose -f install.yml up -d
+#
+# Image:  ghcr.io/spranab/mcpier:latest (auto-published by CI on every main)
+# Port:   8420 → http://localhost:8420
+#
+# ⚠  PLACEHOLDER CREDENTIALS below. BEFORE you store real API keys, rotate:
+#
+#   docker compose -f install.yml down
+#   cat > override.yml <<EOF
+#   services:
+#     pier:
+#       environment:
+#         PIER_MASTER_KEY: "$(openssl rand -hex 32)"
+#         PIER_TOKENS: "$(openssl rand -hex 24)"
+#   EOF
+#   docker compose -f install.yml -f override.yml up -d
+#
+# Pier encrypts at rest with PIER_MASTER_KEY, so any secret stored under the
+# placeholder becomes unreadable after rotation. Rotate before loading real data.
+
+services:
+  pier:
+    image: ghcr.io/spranab/mcpier:latest
+    container_name: pier
+    restart: unless-stopped
+    pull_policy: always
+    ports:
+      - "8420:8420"
+    environment:
+      PIER_MASTER_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      PIER_TOKENS: "pier-dev-token-rotate-me-before-storing-real-secrets"
+      PIER_CATALOG_URLS: "https://raw.githubusercontent.com/spranab/mcpier-catalog/main/catalog.json,https://raw.githubusercontent.com/spranab/mcpier-catalog/main/community.json"
+    volumes:
+      - pier-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8420/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  pier-data:

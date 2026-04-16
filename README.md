@@ -44,14 +44,15 @@ Public registries (mcp.so, Smithery, Anthropic's registry) don't help because yo
 └─────────────────┘
 ```
 
-## Deploy
+## Deploy — one-liner for each runtime
 
-- **Docker Compose** — single-node homelab, fastest start. See below.
-- **Kubernetes** — one `kubectl apply -f` to get everything:
-  ```bash
-  kubectl apply -f https://raw.githubusercontent.com/spranab/mcpier/main/deploy/kubernetes/install.yaml
-  ```
-  Full details + secret rotation in [deploy/kubernetes/README.md](deploy/kubernetes/README.md).
+| Runtime | One command |
+|---|---|
+| **Docker Compose** | `docker compose -f https://raw.githubusercontent.com/spranab/mcpier/main/deploy/compose/install.yml up -d` |
+| **Docker run** | `docker run -d --name pier -p 8420:8420 -v pier-data:/data -e PIER_MASTER_KEY=0000000000000000000000000000000000000000000000000000000000000000 -e PIER_TOKENS=pier-dev-token-rotate-me-before-storing-real-secrets ghcr.io/spranab/mcpier:latest` |
+| **Kubernetes** | `kubectl apply -f https://raw.githubusercontent.com/spranab/mcpier/main/deploy/kubernetes/install.yaml` |
+
+All three pull `ghcr.io/spranab/mcpier:latest`, bind to port **8420**, persist to a named volume / PVC, and come up with **placeholder credentials** so you can open the UI immediately. Rotate before storing real API keys — see [deploy/compose/README.md](deploy/compose/README.md) or [deploy/kubernetes/README.md](deploy/kubernetes/README.md).
 
 ## Quickstart — Docker (recommended for first run)
 
