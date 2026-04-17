@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { Readable } from "node:stream";
 import type { HttpServer, Manifest, ServerEntry, StdioServer } from "@mcpier/shared";
 import type { SecretStore } from "./db.js";
 import type { Config } from "./config.js";
@@ -187,8 +188,13 @@ export function registerProxy(
     if (upCt?.includes("text/event-stream") && upstream.body) {
       reply.header("cache-control", "no-cache");
       reply.header("connection", "keep-alive");
+      reply.header("x-accel-buffering", "no");
       const prefix = `/mcp/${encodeURIComponent(name)}`;
-      return reply.send(rewriteSseEndpoint(upstream.body, prefix));
+      // fastify's reply.send() doesn't consume Whatwg ReadableStream (what
+      // Node's global fetch returns). Convert through Readable.fromWeb so
+      // the SSE frames actually reach the client instead of buffering into
+      // the void.
+      return reply.send(Readable.fromWeb(rewriteSseEndpoint(upstream.body, prefix) as any));
     }
 
     const buf = await upstream.arrayBuffer();
