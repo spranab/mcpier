@@ -44,7 +44,8 @@
   "dependencies": {
     "@inquirer/prompts": "^7.2.0",
     "commander": "^12.1.0",
-    "kleur": "^4.1.5"
+    "kleur": "^4.1.5",
+    "yaml": "^2.6.1"
   },
   "devDependencies": {
     "@mcpier/shared": "*",
