@@ -197,7 +197,10 @@ export function registerProxy(
       });
       console.log(`[proxy] ${name} headers written, piping`);
       const prefix = `/mcp/${encodeURIComponent(name)}`;
-      const rewritten = rewriteSseEndpoint(upstream.body, prefix);
+      // TEMP DEBUG: bypass rewriter to isolate stream plumbing.
+      const rewritten = upstream.body;
+      void prefix;
+      void rewriteSseEndpoint;
       const node = Readable.fromWeb(rewritten as any);
       node.on("data", (d: Buffer) => console.log(`[proxy] ${name} chunk ${d.length}B: ${d.toString("utf8").slice(0, 120).replace(/\n/g, "\\n")}`));
       node.on("end", () => console.log(`[proxy] ${name} stream ended`));
