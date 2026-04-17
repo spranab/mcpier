@@ -7,13 +7,20 @@ import { secretsListCmd, secretsSetCmd } from "./commands/secrets.js";
 import { backupCmd } from "./commands/backup.js";
 import { restoreCmd } from "./commands/restore.js";
 import { installCmd, installGitCmd, type InstallOptions } from "./commands/install.js";
+import {
+  activateCmd,
+  deactivateCmd,
+  profileAddCmd,
+  profileRemoveCmd,
+  profileShowCmd,
+} from "./commands/profile.js";
 
 const program = new Command();
 
 program
   .name("pier")
   .description("self-hosted MCP control plane — sync configs and secrets from your homelab")
-  .version("0.1.3");
+  .version("0.1.4");
 
 program
   .command("login <server>")
@@ -39,9 +46,26 @@ program
     "claude-code",
   )
   .option("--dry-run", "render but do not write", false)
-  .action(async (opts: { clients: string; dryRun: boolean }) => {
-    await syncCmd({ clients: opts.clients.split(","), dryRun: opts.dryRun });
-  });
+  .option("--explain", "print why each MCP was included/skipped", false)
+  .option("--all", "skip profile/workspace filtering, include every MCP", false)
+  .option("--workspace <path>", "override the workspace root (default: cwd)")
+  .action(
+    async (opts: {
+      clients: string;
+      dryRun: boolean;
+      explain: boolean;
+      all: boolean;
+      workspace?: string;
+    }) => {
+      await syncCmd({
+        clients: opts.clients.split(","),
+        dryRun: opts.dryRun,
+        explain: opts.explain,
+        all: opts.all,
+        workspace: opts.workspace,
+      });
+    },
+  );
 
 function installOptions<T extends import("commander").Command>(cmd: T): T {
   return cmd
@@ -63,6 +87,40 @@ installOptions(program.command("install-git <url>"))
   .description("install from a git repo or raw pier.yaml URL (unverified)")
   .action(async (url: string, opts: InstallOptions) => {
     await installGitCmd(url, opts);
+  });
+
+program
+  .command("activate <name>")
+  .description("pin an MCP to always-on in your user profile")
+  .action(async (name: string) => {
+    await activateCmd(name);
+  });
+
+program
+  .command("deactivate <name>")
+  .description("exclude an MCP via your user profile (wins over formula triggers)")
+  .action(async (name: string) => {
+    await deactivateCmd(name);
+  });
+
+const profile = program
+  .command("profile")
+  .description("manage the user profile at ~/.config/pier/profile.yaml");
+profile
+  .command("show")
+  .description("show current user profile")
+  .action(profileShowCmd);
+profile
+  .command("add <kind> <value>")
+  .description("add an entry — kind is 'always', 'never', or 'include_tags'")
+  .action(async (kind: string, value: string) => {
+    await profileAddCmd(kind as "always" | "never" | "include_tags", value);
+  });
+profile
+  .command("remove <kind> <value>")
+  .description("remove an entry — kind is 'always', 'never', or 'include_tags'")
+  .action(async (kind: string, value: string) => {
+    await profileRemoveCmd(kind as "always" | "never" | "include_tags", value);
   });
 
 program

@@ -1,6 +1,6 @@
 {
   "name": "mcpier",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "pier — CLI for mcpier, a self-hosted MCP control plane. Install, sync, browse, backup MCP servers from your homelab.",
   "keywords": [
     "mcp",
@@ -38,6 +38,7 @@
     "dev": "tsx src/index.ts",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

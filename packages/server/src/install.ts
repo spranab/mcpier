@@ -43,6 +43,10 @@ export function uninstall(
 }
 
 function formulaToEntry(formula: Formula, location: "local" | "remote"): ServerEntry {
+  const common = {
+    tags: formula.tags ?? [],
+    ...(formula.auto_activate ? { auto_activate: formula.auto_activate } : {}),
+  };
   if (formula.transport === "stdio") {
     const cmd = formula.command ?? defaultCommandForRuntime(formula);
     const args = formula.command ? formula.args : defaultArgsForRuntime(formula);
@@ -53,6 +57,7 @@ function formulaToEntry(formula: Formula, location: "local" | "remote"): ServerE
       env: formula.env,
       secrets: formula.secrets.map((s) => s.key),
       location,
+      ...common,
     };
   }
   return {
@@ -61,6 +66,7 @@ function formulaToEntry(formula: Formula, location: "local" | "remote"): ServerE
     headers: formula.headers,
     secrets: formula.secrets.map((s) => s.key),
     location,
+    ...common,
   };
 }
 

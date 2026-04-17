@@ -13,6 +13,10 @@ export function configPath(): string {
   return join(homedir(), ".config", "pier", "config.json");
 }
 
+export function userProfilePath(): string {
+  return join(homedir(), ".config", "pier", "profile.yaml");
+}
+
 export function loadLocalConfig(): LocalConfig {
   const path = configPath();
   if (!existsSync(path)) {

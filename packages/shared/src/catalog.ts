@@ -8,6 +8,27 @@ export const SecretSpec = z.object({
 });
 export type SecretSpec = z.infer<typeof SecretSpec>;
 
+/**
+ * Activation triggers (author-declared, ADVISORY). The MCP's pier.yaml says
+ * when it's *probably* relevant; the user profile wins if it disagrees.
+ *   file:     filesystem pattern evaluated against the workspace root
+ *   glob:     glob pattern (e.g. "**\/*.sql") evaluated against cwd
+ *   always:   always relevant (filesystem tool, reasoning helper)
+ *   on_demand: never auto-activate; pier-hub only (default for specialty MCPs)
+ */
+export const ActivationTrigger = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("file"), path: z.string() }),
+  z.object({ kind: z.literal("glob"), pattern: z.string() }),
+  z.object({ kind: z.literal("always") }),
+  z.object({ kind: z.literal("on_demand") }),
+]);
+export type ActivationTrigger = z.infer<typeof ActivationTrigger>;
+
+export const AutoActivate = z.object({
+  triggers: z.array(ActivationTrigger).default([]),
+});
+export type AutoActivate = z.infer<typeof AutoActivate>;
+
 const FormulaBase = z.object({
   name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
   description: z.string(),
@@ -15,6 +36,7 @@ const FormulaBase = z.object({
   tags: z.array(z.string()).default([]),
   secrets: z.array(SecretSpec).default([]),
   remote_eligible: z.boolean().default(false),
+  auto_activate: AutoActivate.optional(),
 });
 
 export const StdioFormula = FormulaBase.extend({

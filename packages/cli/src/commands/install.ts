@@ -161,7 +161,12 @@ async function runInstall(
 
   if (opts.sync) {
     console.log(kleur.gray(`\nsyncing to clients: ${opts.sync}`));
-    await syncCmd({ clients: opts.sync.split(","), dryRun: false });
+    await syncCmd({
+      clients: opts.sync.split(","),
+      dryRun: false,
+      explain: false,
+      all: false,
+    });
   } else {
     console.log(
       kleur.gray(`\nnext: run`),
