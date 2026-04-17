@@ -30,7 +30,10 @@ export function renderServer(
   opts: RenderOptions,
 ): RenderedServer {
   if (entry.location === "remote") {
-    const url = `${opts.pierServer.replace(/\/$/, "")}/mcp/${encodeURIComponent(name)}`;
+    // Claude Code / Cursor / Claude Desktop all expect the SSE stream URL
+    // to end in /sse — verified against a live working config during v0.1.4
+    // debugging (previously-working yantrikdb entry had url ending /sse).
+    const url = `${opts.pierServer.replace(/\/$/, "")}/mcp/${encodeURIComponent(name)}/sse`;
     return {
       transport: entry.transport === "stdio" ? "sse" : entry.transport,
       url,
@@ -85,6 +88,14 @@ function codexConfigPath(): string {
   return join(homedir(), ".codex", "config.toml");
 }
 
+/** Claude Code, Claude Desktop, Cursor all expect `type` as the discriminator
+ * in their JSON config format — not `transport`. We carry `transport` around
+ * internally (matching the MCP protocol spec) and translate at write time. */
+function toJsonEntry(s: RenderedServer): Record<string, unknown> {
+  const { transport, ...rest } = s;
+  return { type: transport, ...rest };
+}
+
 function writeJsonMerge(path: string, servers: Record<string, RenderedServer>): void {
   mkdirSync(dirname(path), { recursive: true });
   let existing: Record<string, unknown> = {};
@@ -95,7 +106,9 @@ function writeJsonMerge(path: string, servers: Record<string, RenderedServer>): 
       existing = {};
     }
   }
-  const merged = { ...existing, mcpServers: servers };
+  const mcpServers: Record<string, unknown> = {};
+  for (const [name, s] of Object.entries(servers)) mcpServers[name] = toJsonEntry(s);
+  const merged = { ...existing, mcpServers };
   writeFileSync(path, JSON.stringify(merged, null, 2));
 }
 

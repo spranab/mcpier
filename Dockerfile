@@ -43,8 +43,9 @@ COPY --from=builder /app/packages/ui/dist              packages/ui/dist
 
 RUN npm ci --omit=dev --workspace @mcpier/server --include-workspace-root \
  && apk del python3 make g++ \
- && apk add --no-cache util-linux \
- && rm -rf /root/.npm /tmp/*
+ && apk add --no-cache util-linux python3 py3-pip \
+ && pip install --no-cache-dir --break-system-packages uv \
+ && rm -rf /root/.npm /root/.cache /tmp/*
 
 # /data must exist and be writable by the `node` user BEFORE VOLUME is declared
 # so bind-mounts and anonymous volumes both inherit the right owner.
