@@ -182,23 +182,27 @@ export function registerProxy(
     }
 
     const upCt = upstream.headers.get("content-type");
+    console.log(`[proxy] ${name} upstream=${upstream.status} ct=${upCt}`);
 
     if (upCt?.includes("text/event-stream") && upstream.body) {
       // Hijack the raw response so we can stream the rewritten SSE body
       // without fastify buffering it. Matches the pattern used by the
       // stdio-SSE path above.
+      reply.hijack();
       reply.raw.writeHead(upstream.status, {
         "content-type": upCt,
         "cache-control": "no-cache, no-transform",
         connection: "keep-alive",
         "x-accel-buffering": "no",
       });
-      reply.hijack();
+      console.log(`[proxy] ${name} headers written, piping`);
       const prefix = `/mcp/${encodeURIComponent(name)}`;
       const rewritten = rewriteSseEndpoint(upstream.body, prefix);
       const node = Readable.fromWeb(rewritten as any);
-      node.on("error", () => reply.raw.end());
-      reply.raw.on("close", () => node.destroy());
+      node.on("data", (d: Buffer) => console.log(`[proxy] ${name} chunk ${d.length}B: ${d.toString("utf8").slice(0, 120).replace(/\n/g, "\\n")}`));
+      node.on("end", () => console.log(`[proxy] ${name} stream ended`));
+      node.on("error", (e) => { console.log(`[proxy] ${name} stream err ${e.message}`); reply.raw.end(); });
+      reply.raw.on("close", () => { console.log(`[proxy] ${name} raw closed`); node.destroy(); });
       node.pipe(reply.raw);
       return;
     }
