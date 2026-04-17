@@ -197,10 +197,7 @@ export function registerProxy(
       });
       console.log(`[proxy] ${name} headers written, piping`);
       const prefix = `/mcp/${encodeURIComponent(name)}`;
-      // TEMP DEBUG: bypass rewriter to isolate stream plumbing.
-      const rewritten = upstream.body;
-      void prefix;
-      void rewriteSseEndpoint;
+      const rewritten = rewriteSseEndpoint(upstream.body, prefix);
       const node = Readable.fromWeb(rewritten as any);
       node.on("data", (d: Buffer) => console.log(`[proxy] ${name} chunk ${d.length}B: ${d.toString("utf8").slice(0, 120).replace(/\n/g, "\\n")}`));
       node.on("end", () => console.log(`[proxy] ${name} stream ended`));
@@ -296,7 +293,9 @@ function rewriteSseEndpoint(
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
+      console.log(`[rewrite] pull called, rewriteDone=${rewriteDone}`);
       const { value, done } = await reader.read();
+      console.log(`[rewrite] read done=${done} valueLen=${value?.byteLength ?? 0}`);
       if (done) {
         if (pendingText) controller.enqueue(encoder.encode(pendingText));
         controller.close();
@@ -308,6 +307,7 @@ function rewriteSseEndpoint(
       }
       pendingText += decoder.decode(value, { stream: true });
       bufferedBytes += value.byteLength;
+      console.log(`[rewrite] buffered ${bufferedBytes}B: ${pendingText.slice(0, 100).replace(/\n/g, "\\n")}`);
 
       const match = pendingText.match(/event:\s*endpoint\s*\ndata:\s*([^\n]+)\n\n/i);
       if (match) {
@@ -319,6 +319,7 @@ function rewriteSseEndpoint(
           match[0],
           `event: endpoint\ndata: ${newPath}\n\n`,
         );
+        console.log(`[rewrite] MATCH: ${origPath} -> ${newPath}, enqueuing ${rewritten.length}B`);
         controller.enqueue(encoder.encode(rewritten));
         pendingText = "";
         rewriteDone = true;
