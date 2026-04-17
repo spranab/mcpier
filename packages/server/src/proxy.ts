@@ -181,22 +181,30 @@ export function registerProxy(
         .send({ error: "upstream_unreachable", detail: (err as Error).message });
     }
 
-    reply.code(upstream.status);
     const upCt = upstream.headers.get("content-type");
-    if (upCt) reply.header("content-type", upCt);
 
     if (upCt?.includes("text/event-stream") && upstream.body) {
-      reply.header("cache-control", "no-cache");
-      reply.header("connection", "keep-alive");
-      reply.header("x-accel-buffering", "no");
+      // Hijack the raw response so we can stream the rewritten SSE body
+      // without fastify buffering it. Matches the pattern used by the
+      // stdio-SSE path above.
+      reply.raw.writeHead(upstream.status, {
+        "content-type": upCt,
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+        "x-accel-buffering": "no",
+      });
+      reply.hijack();
       const prefix = `/mcp/${encodeURIComponent(name)}`;
-      // fastify's reply.send() doesn't consume Whatwg ReadableStream (what
-      // Node's global fetch returns). Convert through Readable.fromWeb so
-      // the SSE frames actually reach the client instead of buffering into
-      // the void.
-      return reply.send(Readable.fromWeb(rewriteSseEndpoint(upstream.body, prefix) as any));
+      const rewritten = rewriteSseEndpoint(upstream.body, prefix);
+      const node = Readable.fromWeb(rewritten as any);
+      node.on("error", () => reply.raw.end());
+      reply.raw.on("close", () => node.destroy());
+      node.pipe(reply.raw);
+      return;
     }
 
+    reply.code(upstream.status);
+    if (upCt) reply.header("content-type", upCt);
     const buf = await upstream.arrayBuffer();
     return reply.send(Buffer.from(buf));
   }
