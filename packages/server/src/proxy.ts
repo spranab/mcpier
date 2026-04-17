@@ -182,12 +182,12 @@ export function registerProxy(
     }
 
     const upCt = upstream.headers.get("content-type");
-    console.log(`[proxy] ${name} upstream=${upstream.status} ct=${upCt}`);
 
     if (upCt?.includes("text/event-stream") && upstream.body) {
       // Hijack the raw response so we can stream the rewritten SSE body
-      // without fastify buffering it. Matches the pattern used by the
-      // stdio-SSE path above.
+      // without fastify buffering it. reply.send(stream) on a hijacked
+      // fastify response sits silent; the stdio-SSE path above uses this
+      // same raw-write pattern for the same reason.
       reply.hijack();
       reply.raw.writeHead(upstream.status, {
         "content-type": upCt,
@@ -195,14 +195,13 @@ export function registerProxy(
         connection: "keep-alive",
         "x-accel-buffering": "no",
       });
-      console.log(`[proxy] ${name} headers written, piping`);
       const prefix = `/mcp/${encodeURIComponent(name)}`;
       const rewritten = rewriteSseEndpoint(upstream.body, prefix);
+      // Node's global fetch returns Response.body as a Whatwg ReadableStream;
+      // convert to Node Readable so .pipe() works against the raw socket.
       const node = Readable.fromWeb(rewritten as any);
-      node.on("data", (d: Buffer) => console.log(`[proxy] ${name} chunk ${d.length}B: ${d.toString("utf8").slice(0, 120).replace(/\n/g, "\\n")}`));
-      node.on("end", () => console.log(`[proxy] ${name} stream ended`));
-      node.on("error", (e) => { console.log(`[proxy] ${name} stream err ${e.message}`); reply.raw.end(); });
-      reply.raw.on("close", () => { console.log(`[proxy] ${name} raw closed`); node.destroy(); });
+      node.on("error", () => reply.raw.end());
+      reply.raw.on("close", () => node.destroy());
       node.pipe(reply.raw);
       return;
     }
@@ -293,9 +292,7 @@ function rewriteSseEndpoint(
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      console.log(`[rewrite] pull called, rewriteDone=${rewriteDone}`);
       const { value, done } = await reader.read();
-      console.log(`[rewrite] read done=${done} valueLen=${value?.byteLength ?? 0}`);
       if (done) {
         if (pendingText) controller.enqueue(encoder.encode(pendingText));
         controller.close();
@@ -307,19 +304,24 @@ function rewriteSseEndpoint(
       }
       pendingText += decoder.decode(value, { stream: true });
       bufferedBytes += value.byteLength;
-      console.log(`[rewrite] buffered ${bufferedBytes}B: ${pendingText.slice(0, 100).replace(/\n/g, "\\n")}`);
 
-      const match = pendingText.match(/event:\s*endpoint\s*\ndata:\s*([^\n]+)\n\n/i);
+      // SSE frames may use CRLF — match `[^\r\n]+` for the data value and
+      // `\r?\n\r?\n` for the double-newline terminator, then preserve the
+      // original line-ending style when re-emitting.
+      const match = pendingText.match(
+        /event:\s*endpoint\s*\r?\ndata:\s*([^\r\n]+)(\r?\n\r?\n)/i,
+      );
       if (match) {
         const origPath = match[1]!.trim();
+        const terminator = match[2]!;
+        const eol = terminator.includes("\r\n") ? "\r\n" : "\n";
         const newPath = origPath.startsWith("/")
           ? prefix + origPath
           : prefix + "/" + origPath;
         const rewritten = pendingText.replace(
           match[0],
-          `event: endpoint\ndata: ${newPath}\n\n`,
+          `event: endpoint${eol}data: ${newPath}${eol}${eol}`,
         );
-        console.log(`[rewrite] MATCH: ${origPath} -> ${newPath}, enqueuing ${rewritten.length}B`);
         controller.enqueue(encoder.encode(rewritten));
         pendingText = "";
         rewriteDone = true;
