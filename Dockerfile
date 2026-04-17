@@ -52,6 +52,28 @@ RUN npm ci --omit=dev --workspace @mcpier/server --include-workspace-root \
 RUN mkdir -p /data && chown -R node:node /app /data
 USER node
 
+# Pre-warm the common MCP package caches so Claude Code's first connect
+# doesn't race the network (uvx / npx first-run download can take 20-60s,
+# past most MCP clients' connect timeouts). `|| true` keeps the build
+# resilient to temporary registry hiccups — a later spawn will just
+# retry the download.
+RUN set +e; \
+  for pkg in \
+    "@modelcontextprotocol/server-memory" \
+    "@modelcontextprotocol/server-sequential-thinking" \
+    "@modelcontextprotocol/server-filesystem" \
+    "brainstorm-mcp" \
+    "saga-mcp" \
+    "truenas-mcp" \
+    "swarmcode-mcp" \
+  ; do \
+    echo "warming npx:$pkg"; npx -y "$pkg" --help >/dev/null 2>&1 || true; \
+  done; \
+  for pkg in mcp-server-time mcp-server-fetch mcp-server-git swarmcode; do \
+    echo "warming uvx:$pkg"; uvx "$pkg" --help >/dev/null 2>&1 || true; \
+  done; \
+  true
+
 ENV PIER_HOST=0.0.0.0
 ENV PIER_PORT=8420
 ENV PIER_DATA_DIR=/data
