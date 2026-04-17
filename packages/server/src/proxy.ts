@@ -12,22 +12,26 @@ function interpolate(template: string, secrets: Record<string, string>): string 
 function resolveSecretsFor(
   entry: ServerEntry,
   store: SecretStore,
-): { values: Record<string, string> } | { error: string } {
+): { values: Record<string, string> } {
+  // The entry's `secrets` list mixes required and optional (we don't persist
+  // that distinction in the manifest). Return whatever is set, empty string
+  // for anything missing — the MCP subprocess decides how to handle absent
+  // values. This matches what the CLI writer does for local-mode installs.
   const values = store.getMany(entry.secrets);
-  const missing = entry.secrets.filter((k) => !(k in values));
-  if (missing.length > 0) return { error: `missing secrets: ${missing.join(", ")}` };
+  for (const k of entry.secrets) {
+    if (!(k in values)) values[k] = "";
+  }
   return { values };
 }
 
 function resolveUpstream(
   entry: HttpServer,
   store: SecretStore,
-): { url: string; headers: Record<string, string> } | { error: string } {
-  const secrets = resolveSecretsFor(entry, store);
-  if ("error" in secrets) return { error: secrets.error };
+): { url: string; headers: Record<string, string> } {
+  const { values } = resolveSecretsFor(entry, store);
   const headers: Record<string, string> = {};
   for (const [k, v] of Object.entries(entry.headers)) {
-    headers[k] = interpolate(v, secrets.values);
+    headers[k] = interpolate(v, values);
   }
   return { url: entry.url, headers };
 }
@@ -100,10 +104,6 @@ export function registerProxy(
     token: string,
   ): void {
     const secrets = resolveSecretsFor(entry, store);
-    if ("error" in secrets) {
-      reply.code(500).send({ error: secrets.error });
-      return;
-    }
 
     reply.raw.writeHead(200, {
       "content-type": "text/event-stream",
@@ -140,7 +140,6 @@ export function registerProxy(
     }
 
     const resolved = resolveUpstream(entry, store);
-    if ("error" in resolved) return reply.code(500).send({ error: resolved.error });
 
     const upstreamBase = resolved.url.replace(/\/$/, "");
     const qs = req.url.includes("?") ? "?" + req.url.split("?")[1] : "";
