@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir, platform } from "node:os";
 import type { ClientKind, Manifest, ServerEntry } from "@mcpier/shared";
+import { managedEntriesPath } from "./config.js";
 
 export interface RenderedServer {
   transport: "stdio" | "http" | "sse";
@@ -96,7 +97,33 @@ function toJsonEntry(s: RenderedServer): Record<string, unknown> {
   return { type: transport, ...rest };
 }
 
-function writeJsonMerge(path: string, servers: Record<string, RenderedServer>): void {
+function loadManaged(): Record<string, string[]> {
+  const p = managedEntriesPath();
+  if (!existsSync(p)) return {};
+  try {
+    return JSON.parse(readFileSync(p, "utf8")) as Record<string, string[]>;
+  } catch {
+    return {};
+  }
+}
+
+function saveManaged(data: Record<string, string[]>): void {
+  const p = managedEntriesPath();
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, JSON.stringify(data, null, 2));
+}
+
+/**
+ * Property-level merge. Pier remembers which entries it wrote last time (in
+ * ~/.config/pier/managed.json); on each sync it drops just those and writes
+ * the new set, preserving any entry a user added manually (e.g. a direct
+ * `yantrikdb` entry bypassing Pier).
+ */
+function writeJsonMerge(
+  path: string,
+  client: ClientKind,
+  servers: Record<string, RenderedServer>,
+): void {
   mkdirSync(dirname(path), { recursive: true });
   let existing: Record<string, unknown> = {};
   if (existsSync(path)) {
@@ -106,10 +133,28 @@ function writeJsonMerge(path: string, servers: Record<string, RenderedServer>): 
       existing = {};
     }
   }
-  const mcpServers: Record<string, unknown> = {};
-  for (const [name, s] of Object.entries(servers)) mcpServers[name] = toJsonEntry(s);
-  const merged = { ...existing, mcpServers };
+
+  const existingMcp =
+    ((existing["mcpServers"] as Record<string, unknown>) ?? {}) as Record<string, unknown>;
+
+  const managed = loadManaged();
+  const prevOwned = managed[client] ?? [];
+  const nowOwned = Object.keys(servers);
+
+  // Drop entries Pier previously owned (they're either updating or going away).
+  // Leave user-owned entries untouched.
+  for (const name of prevOwned) delete existingMcp[name];
+
+  // Write the current Pier-managed set.
+  for (const [name, s] of Object.entries(servers)) {
+    existingMcp[name] = toJsonEntry(s);
+  }
+
+  const merged = { ...existing, mcpServers: existingMcp };
   writeFileSync(path, JSON.stringify(merged, null, 2));
+
+  managed[client] = nowOwned;
+  saveManaged(managed);
 }
 
 function renderedToToml(servers: Record<string, RenderedServer>): string {
@@ -155,15 +200,15 @@ export function writeClient(
   switch (client) {
     case "claude-code":
       path = claudeCodeConfigPath();
-      writeJsonMerge(path, servers);
+      writeJsonMerge(path, client, servers);
       break;
     case "claude-desktop":
       path = claudeConfigPath();
-      writeJsonMerge(path, servers);
+      writeJsonMerge(path, client, servers);
       break;
     case "cursor":
       path = cursorConfigPath();
-      writeJsonMerge(path, servers);
+      writeJsonMerge(path, client, servers);
       break;
     case "codex":
       path = codexConfigPath();

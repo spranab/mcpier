@@ -77,6 +77,15 @@ export function registerProxy(
   app.put("/mcp/:name", async (req, reply) => httpProxy(req, reply));
   app.delete("/mcp/:name", async (req, reply) => httpProxy(req, reply));
 
+  // Subpath forwarder for SSE-upstream MCPs. Upstream SSE servers send
+  // endpoint events with relative paths (e.g. "/messages/?session_id=X");
+  // openSseWithRewrite below rewrites those to "/mcp/:name/messages/?session_id=X"
+  // so follow-up POSTs come back here and get forwarded to the upstream
+  // origin minus the "/mcp/:name" prefix. Enables proxying any SSE MCP.
+  app.post("/mcp/:name/*", async (req, reply) => subpathProxy(req, reply));
+  app.put("/mcp/:name/*", async (req, reply) => subpathProxy(req, reply));
+  app.delete("/mcp/:name/*", async (req, reply) => subpathProxy(req, reply));
+
   async function handleRoot(
     req: FastifyRequest,
     reply: FastifyReply,
@@ -178,12 +187,133 @@ export function registerProxy(
     if (upCt?.includes("text/event-stream") && upstream.body) {
       reply.header("cache-control", "no-cache");
       reply.header("connection", "keep-alive");
-      return reply.send(upstream.body);
+      const prefix = `/mcp/${encodeURIComponent(name)}`;
+      return reply.send(rewriteSseEndpoint(upstream.body, prefix));
     }
 
     const buf = await upstream.arrayBuffer();
     return reply.send(Buffer.from(buf));
   }
+
+  async function subpathProxy(
+    req: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<FastifyReply | void> {
+    const token = authFromParams(req, config.tokens);
+    if (!token) return reply.code(401).send({ error: "unauthorized" });
+
+    const { name } = req.params as { name: string };
+    const subpath = (req.params as Record<string, string>)["*"] ?? "";
+    const entry = getManifest().manifest.servers[name];
+    if (!entry) return reply.code(404).send({ error: `no server '${name}'` });
+    if (entry.location !== "remote") {
+      return reply.code(400).send({ error: `server '${name}' is not in remote mode` });
+    }
+    if (entry.transport === "stdio") {
+      return reply
+        .code(404)
+        .send({ error: "stdio server has no subpath — use /mcp/:name/messages?session=<id>" });
+    }
+
+    const resolved = resolveUpstream(entry, store);
+    const upstreamUrl = new URL(resolved.url);
+    upstreamUrl.pathname = "/" + subpath;
+    const qIdx = req.url.indexOf("?");
+    if (qIdx !== -1) upstreamUrl.search = req.url.slice(qIdx);
+
+    const forwardHeaders: Record<string, string> = { ...resolved.headers };
+    const ct = req.headers["content-type"];
+    if (typeof ct === "string") forwardHeaders["content-type"] = ct;
+    const accept = req.headers["accept"];
+    if (typeof accept === "string") forwardHeaders["accept"] = accept;
+
+    let body: BodyInit | undefined;
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      body = JSON.stringify(req.body ?? {});
+    }
+
+    store.audit(token.slice(0, 8), `proxy.${req.method}.sub`, `${name}/${subpath}`);
+
+    let upstream: Response;
+    try {
+      upstream = await fetch(upstreamUrl.toString(), {
+        method: req.method,
+        headers: forwardHeaders,
+        body,
+      });
+    } catch (err) {
+      return reply
+        .code(502)
+        .send({ error: "upstream_unreachable", detail: (err as Error).message });
+    }
+
+    reply.code(upstream.status);
+    const upCt = upstream.headers.get("content-type");
+    if (upCt) reply.header("content-type", upCt);
+    const buf = await upstream.arrayBuffer();
+    return reply.send(Buffer.from(buf));
+  }
+}
+
+/**
+ * Transform the upstream SSE stream so `event: endpoint\ndata: <path>` events
+ * get their path prefixed with `/mcp/:name`. That way the client follows the
+ * rewritten URL back into Pier instead of trying to hit the upstream directly.
+ * Only the first endpoint event is rewritten; subsequent chunks stream through
+ * unchanged. Falls back to passthrough if no endpoint is seen in the first 4KB.
+ */
+function rewriteSseEndpoint(
+  body: ReadableStream<Uint8Array>,
+  prefix: string,
+): ReadableStream<Uint8Array> {
+  const reader = body.getReader();
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  let pendingText = "";
+  let rewriteDone = false;
+  let bufferedBytes = 0;
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const { value, done } = await reader.read();
+      if (done) {
+        if (pendingText) controller.enqueue(encoder.encode(pendingText));
+        controller.close();
+        return;
+      }
+      if (rewriteDone) {
+        controller.enqueue(value);
+        return;
+      }
+      pendingText += decoder.decode(value, { stream: true });
+      bufferedBytes += value.byteLength;
+
+      const match = pendingText.match(/event:\s*endpoint\s*\ndata:\s*([^\n]+)\n\n/i);
+      if (match) {
+        const origPath = match[1]!.trim();
+        const newPath = origPath.startsWith("/")
+          ? prefix + origPath
+          : prefix + "/" + origPath;
+        const rewritten = pendingText.replace(
+          match[0],
+          `event: endpoint\ndata: ${newPath}\n\n`,
+        );
+        controller.enqueue(encoder.encode(rewritten));
+        pendingText = "";
+        rewriteDone = true;
+        return;
+      }
+
+      if (bufferedBytes > 4096) {
+        controller.enqueue(encoder.encode(pendingText));
+        pendingText = "";
+        rewriteDone = true;
+      }
+    },
+    cancel() {
+      reader.cancel().catch(() => {});
+    },
+  });
 }
 
 export function listRemoteServers(manifest: Manifest): string[] {

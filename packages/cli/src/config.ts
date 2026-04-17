@@ -17,6 +17,13 @@ export function userProfilePath(): string {
   return join(homedir(), ".config", "pier", "profile.yaml");
 }
 
+/** Tracks which entries in each client config Pier is responsible for.
+ * Anything NOT in this list is treated as user-owned and preserved through
+ * `pier sync`. Keyed by client kind → list of entry names. */
+export function managedEntriesPath(): string {
+  return join(homedir(), ".config", "pier", "managed.json");
+}
+
 export function loadLocalConfig(): LocalConfig {
   const path = configPath();
   if (!existsSync(path)) {
