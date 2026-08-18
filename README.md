@@ -186,6 +186,16 @@ npm run build      # production build of all workspaces
 
 Published on npm as [`mcpier`](https://www.npmjs.com/package/mcpier). Images on GHCR as `ghcr.io/spranab/mcpier`. See the [releases page](https://github.com/spranab/mcpier/releases) for changelogs.
 
+## Related projects
+
+Pier manages MCP servers. These are MCP servers worth pointing it at — all from the same author:
+
+- [yantrikdb-mcp](https://github.com/yantrikos/yantrikdb-mcp) — persistent cognitive memory for agents; the memory survives between sessions (`pip install yantrikdb-mcp`).
+- [saga-mcp](https://github.com/spranab/saga-mcp) — epics and stories tracked inside the agent loop instead of a separate PM tool.
+- [truenas-mcp](https://github.com/spranab/truenas-mcp) — 278 TrueNAS SCALE actions behind one hierarchical tool (~200 tokens instead of ~28k).
+- [swarmcode](https://github.com/spranab/swarmcode) — real-time messaging between Claude Code instances across machines.
+- [brainstorm-mcp](https://github.com/spranab/brainstorm-mcp) — multi-round debates between several models, as one tool call.
+
 ## License
 
 MIT
