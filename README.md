@@ -25,35 +25,6 @@ Public directories (mcp.so, Smithery) don't help — your secrets aren't in them
 - **Built-in marketplace.** Subscribed to the official MCP Registry out of the box — namespace-authenticated entries (`com.stripe/mcp`, `io.github.*`). Plus curated feeds for community servers. Plus `pier install-git <url>` for anything else.
 - **Self-hosted, open source, MIT.** Your homelab, your keys, your network. No SaaS tier.
 
-## Architecture
-
-```
-┌─────────────────┐            ┌──────────────────────────┐
-│  Homelab        │            │  Your laptop / desktop   │
-│                 │            │                          │
-│  ┌───────────┐  │            │  ┌────────────────────┐  │
-│  │  Pier     │◄─┼──HTTP(S)───┤  │  pier CLI          │  │
-│  │  server   │  │            │  │  (writes configs)  │  │
-│  │           │  │            │  └────────────────────┘  │
-│  │  API      │  │            │                          │
-│  │  UI       │◄─┼──browser───┤  ~/.claude.json          │
-│  │  Gateway  │  │            │  ~/.cursor/mcp.json      │
-│  │  ┌─────┐  │  │            │  ~/.codex/config.toml    │
-│  │  │MCP-1│  │  │            │                          │
-│  │  │MCP-2│◄─┼──┼──SSE───────┤  Claude Code / Cursor    │
-│  │  │MCP-N│  │  │            │  (one URL per remote MCP)│
-│  │  └─────┘  │  │            │                          │
-│  └───────────┘  │            └──────────────────────────┘
-│       │         │
-│       ▼         │
-│   SQLite        │
-│   (encrypted    │
-│    secrets,     │
-│    manifest,    │
-│    audit log)   │
-└─────────────────┘
-```
-
 ## Install
 
 ### Server (pick one)
@@ -155,6 +126,35 @@ Three tiers, clearly labeled in the UI:
 | ✓ **registry** (green) | Official MCP Registry | Namespace verified via GitHub OAuth or DNS TXT — unforgeable per namespace |
 | ✓ **curated** (amber) | Subscribed `catalog.json` feeds | Soft — you trust the catalog maintainer |
 | (no badge) | `pier install-git <url>` | Explicit user confirmation — you trust the URL |
+
+## Architecture
+
+```
+┌─────────────────┐            ┌──────────────────────────┐
+│  Homelab        │            │  Your laptop / desktop   │
+│                 │            │                          │
+│  ┌───────────┐  │            │  ┌────────────────────┐  │
+│  │  Pier     │◄─┼──HTTP(S)───┤  │  pier CLI          │  │
+│  │  server   │  │            │  │  (writes configs)  │  │
+│  │           │  │            │  └────────────────────┘  │
+│  │  API      │  │            │                          │
+│  │  UI       │◄─┼──browser───┤  ~/.claude.json          │
+│  │  Gateway  │  │            │  ~/.cursor/mcp.json      │
+│  │  ┌─────┐  │  │            │  ~/.codex/config.toml    │
+│  │  │MCP-1│  │  │            │                          │
+│  │  │MCP-2│◄─┼──┼──SSE───────┤  Claude Code / Cursor    │
+│  │  │MCP-N│  │  │            │  (one URL per remote MCP)│
+│  │  └─────┘  │  │            │                          │
+│  └───────────┘  │            └──────────────────────────┘
+│       │         │
+│       ▼         │
+│   SQLite        │
+│   (encrypted    │
+│    secrets,     │
+│    manifest,    │
+│    audit log)   │
+└─────────────────┘
+```
 
 ## Deploy docs
 
